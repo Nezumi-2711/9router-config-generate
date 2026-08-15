@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'bun:test'
 import { encodeInstallToken, decodeInstallToken, buildOneClickCommand } from './installLink'
 import { renderInstallScript } from './installEndpoint'
+import { buildInstallScript } from './installScript'
 import { tools } from '../data/tools'
 
 describe('Install Link & Endpoint', () => {
@@ -62,11 +63,44 @@ describe('Install Link & Endpoint', () => {
     expect(shRes.contentType).toContain('text/x-shellscript')
     expect(shRes.body).toContain('__NINEROUTER_API_KEY__')
     expect(shRes.body).toContain('NINEROUTER_API_KEY')
+    expect(shRes.body).toContain('/dev/tty')
+    expect(shRes.body).toContain('exit 1')
+    expect(shRes.body).not.toContain('${input:9router-api-key}')
 
     const ps1Res = renderInstallScript(token, 'ps1')
     expect(ps1Res.status).toBe(200)
     expect(ps1Res.contentType).toContain('text/plain')
     expect(ps1Res.body).toContain('__NINEROUTER_API_KEY__')
+    expect(ps1Res.body).toContain('exit 1')
+    expect(ps1Res.body).not.toContain('${input:9router-api-key}')
+  })
+
+  it('builds embedded install script with real API key inline and no prompts', () => {
+    const scriptUnix = buildInstallScript(
+      tools.copilot,
+      { baseUrl: 'http://localhost:20128/v1', apiKey: 'sk-real-secret-123' },
+      [{ id: 'cc/claude-sonnet-4.5', name: 'Claude Sonnet 4.5' }],
+      'unix',
+      { keySource: 'embedded' }
+    )
+
+    expect(scriptUnix).not.toBeNull()
+    expect(scriptUnix!.content).toContain('sk-real-secret-123')
+    expect(scriptUnix!.content).not.toContain('__NINEROUTER_API_KEY__')
+    expect(scriptUnix!.content).not.toContain('read -rsp')
+
+    const scriptWin = buildInstallScript(
+      tools.copilot,
+      { baseUrl: 'http://localhost:20128/v1', apiKey: 'sk-real-secret-123' },
+      [{ id: 'cc/claude-sonnet-4.5', name: 'Claude Sonnet 4.5' }],
+      'windows',
+      { keySource: 'embedded' }
+    )
+
+    expect(scriptWin).not.toBeNull()
+    expect(scriptWin!.content).toContain('sk-real-secret-123')
+    expect(scriptWin!.content).not.toContain('__NINEROUTER_API_KEY__')
+    expect(scriptWin!.content).not.toContain('Read-Host')
   })
 
   it('replaces every API key placeholder in generated runtime scripts', () => {

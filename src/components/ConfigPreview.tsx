@@ -28,7 +28,7 @@ export const ConfigPreview: React.FC<ConfigPreviewProps> = ({
 
   const configContent = tool.sampleTemplate(connection, selectedModels)
   const installScript = buildInstallScript(tool, connection, selectedModels, selectedOS, {
-    keySource: 'runtime-env',
+    keySource: connection.apiKey ? 'embedded' : 'runtime-env',
   })
 
   const handleCopyConfig = async () => {
@@ -182,14 +182,10 @@ export const ConfigPreview: React.FC<ConfigPreviewProps> = ({
         <div className="flex flex-col gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-left">
           <div className="flex items-center gap-2 font-semibold text-amber-800 dark:text-amber-300">
             <Key className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-            <span>Secure API Key Storage in VS Code</span>
+            <span>API Key Setup for VS Code</span>
           </div>
           <p className="text-zinc-600 dark:text-zinc-300 leading-relaxed">
-            No API key entered above. The generated config uses{' '}
-            <code className="px-1 py-0.5 rounded bg-amber-500/15 font-mono text-[11px] text-amber-700 dark:text-amber-300">
-              ${'{input:9router-api-key}'}
-            </code>
-            . When VS Code prompts you for <strong className="font-semibold text-zinc-900 dark:text-zinc-100">9router-api-key</strong>, paste your key.
+            No API key entered above. Enter your API key under <strong>Gateway Connection</strong> to embed it directly into the config, or use the 1-Command installer which will prompt you for your key securely during installation.
           </p>
         </div>
       )}

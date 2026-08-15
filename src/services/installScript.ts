@@ -39,9 +39,13 @@ export function buildInstallScript(
       keySource === 'runtime-env'
         ? {
             writeConfigSection: `API_KEY="\${NINEROUTER_API_KEY:-}"
-if [[ -z "$API_KEY" ]]; then
-  read -rsp "Enter your 9router API key: " API_KEY
+if [[ -z "$API_KEY" && -r /dev/tty ]]; then
+  read -rsp "Enter your 9router API key: " API_KEY < /dev/tty
   echo
+fi
+if [[ -z "$API_KEY" ]]; then
+  echo "❌ No 9router API key provided (set NINEROUTER_API_KEY or run in an interactive terminal)." >&2
+  exit 1
 fi
 
 CONFIG=$(cat <<'EOF'
@@ -85,11 +89,7 @@ replace_api_key_placeholder() {
   done
 }
 
-if [[ -n "$API_KEY" ]]; then
-  replace_api_key_placeholder "$(json_escape "$API_KEY")"
-else
-  replace_api_key_placeholder '\${input:9router-api-key}'
-fi
+replace_api_key_placeholder "$(json_escape "$API_KEY")"
 
 printf '%s\\n' "$CONFIG" > "$TARGET_FILE"`
             ,
@@ -165,16 +165,17 @@ if (-not $apiKey) {
     $apiKey = [System.Net.NetworkCredential]::new('', $secureApiKey).Password
 }
 
+if (-not $apiKey) {
+    Write-Error "No 9router API key provided. Set NINEROUTER_API_KEY or run in an interactive terminal."
+    exit 1
+}
+
 $config = @'
 ${configContent}
 '@
 
-if ($apiKey) {
-  $jsonApiKey = ConvertTo-Json -InputObject $apiKey -Compress
-  $config = $config.Replace('"__NINEROUTER_API_KEY__"', $jsonApiKey)
-} else {
-  $config = $config.Replace('"__NINEROUTER_API_KEY__"', '"\${input:9router-api-key}"')
-}
+$jsonApiKey = ConvertTo-Json -InputObject $apiKey -Compress
+$config = $config.Replace('"__NINEROUTER_API_KEY__"', $jsonApiKey)
 
 Set-Content -Path $targetFile -Value $config -Encoding UTF8`,
           psPostInstallNotes: `Write-Host ""

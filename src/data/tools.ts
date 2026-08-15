@@ -37,7 +37,7 @@ export const tools: Record<ToolId, ToolMeta> = {
       }
 
       const endpointUrl = connection.baseUrl.replace(/\/+$/, '') + '/chat/completions'
-      const apiKeyVal = connection.apiKey ? connection.apiKey : '${input:9router-api-key}'
+      const apiKeyVal = connection.apiKey ? connection.apiKey : '<YOUR_9ROUTER_API_KEY>'
 
       const groups = Array.from(groupsMap.entries()).map(([provider, models]) => {
         return {
