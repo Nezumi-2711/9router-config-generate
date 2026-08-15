@@ -59,22 +59,22 @@ function formatModelName(id: string, rawName?: string): string {
 
 export async function fetchRemoteModels(connection: ConnectionConfig): Promise<Model[]> {
   const trimmedBase = connection.baseUrl.replace(/\/+$/, '')
-  const isHttpsOrCustom = trimmedBase.startsWith('http://') || trimmedBase.startsWith('https://')
+  const isHttpUrl = trimmedBase.startsWith('http://') || trimmedBase.startsWith('https://')
 
   let data: RawModelsResponse | null = null
 
-  // 1. Direct fetch with ?key= param if remote requires it or headers
+  // 1. Direct fetch with the standard Authorization header. Never put an API key in a URL.
   try {
-    const urlObj = new URL(`${trimmedBase}/models`)
-    if (connection.apiKey) {
-      urlObj.searchParams.set('key', connection.apiKey.trim())
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+    }
+    if (connection.apiKey?.trim()) {
+      headers['Authorization'] = `Bearer ${connection.apiKey.trim()}`
     }
 
-    const directRes = await fetch(urlObj.toString(), {
+    const directRes = await fetch(`${trimmedBase}/models`, {
       method: 'GET',
-      headers: {
-        Accept: 'application/json',
-      },
+      headers,
     })
 
     if (directRes.ok) {
@@ -84,31 +84,8 @@ export async function fetchRemoteModels(connection: ConnectionConfig): Promise<M
     // If direct CORS/network fails, fallback to standard Authorization header or proxy
   }
 
-  // 2. If direct query-param fetch did not succeed, try standard Bearer header
-  if (!data) {
-    try {
-      const headers: Record<string, string> = {
-        Accept: 'application/json',
-      }
-      if (connection.apiKey?.trim()) {
-        headers['Authorization'] = `Bearer ${connection.apiKey.trim()}`
-      }
-
-      const directRes = await fetch(`${trimmedBase}/models`, {
-        method: 'GET',
-        headers,
-      })
-
-      if (directRes.ok) {
-        data = await directRes.json()
-      }
-    } catch {
-      // Direct fetch failed (likely CORS on browser), proceed to fallback proxy
-    }
-  }
-
-  // 3. Fallback to local Vite / Worker proxy if running in dev or support environment
-  if (!data && isHttpsOrCustom) {
+  // 2. Fallback to the local Vite / allowlisted Worker proxy when direct CORS fails.
+  if (!data && isHttpUrl) {
     try {
       const proxyRes = await fetch('/api/fetch-models', {
         method: 'POST',
@@ -151,6 +128,7 @@ export async function fetchRemoteModels(connection: ConnectionConfig): Promise<M
 
     const vision = caps.vision ?? (item.vision as boolean | undefined) ?? false
     const toolCalling = caps.tools ?? caps.toolCalling ?? (item.toolCalling as boolean | undefined) ?? false
+    const reasoning = caps.reasoning ?? (item.reasoning as boolean | undefined) ?? false
 
     return {
       id: item.id,
@@ -160,6 +138,7 @@ export async function fetchRemoteModels(connection: ConnectionConfig): Promise<M
       contextWindow,
       vision,
       toolCalling,
+      reasoning,
       description: item.description || (caps.reasoning ? 'Reasoning model with extended thinking capabilities' : undefined),
     }
   })

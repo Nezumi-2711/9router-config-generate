@@ -49,6 +49,7 @@ export const mockModels: Model[] = [
     contextWindow: 200000,
     vision: false,
     toolCalling: true,
+    reasoning: true,
     description: 'Deep mathematical and algorithmic reasoning specialist',
   },
   {
@@ -69,6 +70,7 @@ export const mockModels: Model[] = [
     contextWindow: 64000,
     vision: false,
     toolCalling: true,
+    reasoning: true,
     description: 'Open-weights reasoning model with high performance on coding tasks',
   },
 ]

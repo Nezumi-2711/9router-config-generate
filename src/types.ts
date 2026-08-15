@@ -9,11 +9,17 @@ export interface Model {
   family?: string
   vision?: boolean
   toolCalling?: boolean
+  reasoning?: boolean
 }
 
 export interface ConnectionConfig {
   baseUrl: string
   apiKey: string
+}
+
+export interface InstallTargets {
+  unixPath: string
+  windowsPath: string
 }
 
 export interface ToolMeta {
@@ -24,5 +30,6 @@ export interface ToolMeta {
   locationDescription: string
   language: 'json' | 'toml' | 'bash'
   iconName: 'bot' | 'terminal' | 'cpu'
+  installTargets?: InstallTargets
   sampleTemplate: (connection: ConnectionConfig, selectedModels: Model[]) => string
 }
