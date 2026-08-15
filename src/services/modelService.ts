@@ -61,13 +61,15 @@ export async function fetchRemoteModels(connection: ConnectionConfig): Promise<M
   const trimmedBase = connection.baseUrl.replace(/\/+$/, '')
   let data: RawModelsResponse
 
-  // Fetch the user-provided gateway directly. The gateway must permit this app's origin with CORS.
+  const apiKey = connection.apiKey?.trim()
+
   try {
+    // 1. First attempt: standard Authorization header
     const headers: Record<string, string> = {
       Accept: 'application/json',
     }
-    if (connection.apiKey?.trim()) {
-      headers['Authorization'] = `Bearer ${connection.apiKey.trim()}`
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`
     }
 
     const directRes = await fetch(`${trimmedBase}/models`, {
@@ -79,12 +81,41 @@ export async function fetchRemoteModels(connection: ConnectionConfig): Promise<M
       throw new Error(`Gateway responded with ${directRes.status} ${directRes.statusText}`)
     }
     data = await directRes.json()
-  } catch (err: unknown) {
-    const reason = err instanceof Error ? err.message : 'Unknown network error'
-    throw new Error(
-      `Unable to fetch models directly from the gateway. Check the Base URL, API key, and that the gateway allows this app origin with CORS. ${reason}`,
-      { cause: err }
-    )
+  } catch (firstErr: unknown) {
+    // 2. If an API key is provided and the standard header fetch failed (e.g. browser CORS preflight rejected Authorization header),
+    // fall back to passing the key as a query parameter (?key=...) which avoids custom header preflight issues.
+    if (apiKey) {
+      try {
+        const url = new URL(`${trimmedBase}/models`)
+        url.searchParams.set('key', apiKey)
+
+        const fallbackRes = await fetch(url.toString(), {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json',
+          },
+        })
+
+        if (!fallbackRes.ok) {
+          throw new Error(`Gateway responded with ${fallbackRes.status} ${fallbackRes.statusText}`, {
+            cause: firstErr,
+          })
+        }
+        data = await fallbackRes.json()
+      } catch (fallbackErr: unknown) {
+        const reason = fallbackErr instanceof Error ? fallbackErr.message : 'Unknown network error'
+        throw new Error(
+          `Unable to fetch models directly from the gateway. Check the Base URL, API key, and that the gateway allows this app origin with CORS. ${reason}`,
+          { cause: fallbackErr }
+        )
+      }
+    } else {
+      const reason = firstErr instanceof Error ? firstErr.message : 'Unknown network error'
+      throw new Error(
+        `Unable to fetch models directly from the gateway. Check the Base URL, API key, and that the gateway allows this app origin with CORS. ${reason}`,
+        { cause: firstErr }
+      )
+    }
   }
 
   const rawList = Array.isArray(data) ? data : (data.data || [])
