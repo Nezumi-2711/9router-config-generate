@@ -59,11 +59,9 @@ function formatModelName(id: string, rawName?: string): string {
 
 export async function fetchRemoteModels(connection: ConnectionConfig): Promise<Model[]> {
   const trimmedBase = connection.baseUrl.replace(/\/+$/, '')
-  const isHttpUrl = trimmedBase.startsWith('http://') || trimmedBase.startsWith('https://')
+  let data: RawModelsResponse
 
-  let data: RawModelsResponse | null = null
-
-  // 1. Direct fetch with the standard Authorization header. Never put an API key in a URL.
+  // Fetch the user-provided gateway directly. The gateway must permit this app's origin with CORS.
   try {
     const headers: Record<string, string> = {
       Accept: 'application/json',
@@ -77,43 +75,16 @@ export async function fetchRemoteModels(connection: ConnectionConfig): Promise<M
       headers,
     })
 
-    if (directRes.ok) {
-      data = await directRes.json()
+    if (!directRes.ok) {
+      throw new Error(`Gateway responded with ${directRes.status} ${directRes.statusText}`)
     }
-  } catch {
-    // If direct CORS/network fails, fallback to standard Authorization header or proxy
-  }
-
-  // 2. Fallback to the local Vite / allowlisted Worker proxy when direct CORS fails.
-  if (!data && isHttpUrl) {
-    try {
-      const proxyRes = await fetch('/api/fetch-models', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          baseUrl: connection.baseUrl,
-          apiKey: connection.apiKey,
-        }),
-      })
-
-      if (proxyRes.ok) {
-        data = await proxyRes.json()
-      } else {
-        const errJson = await proxyRes.json().catch(() => null)
-        const errMsg = errJson?.error?.message || errJson?.error || proxyRes.statusText
-        throw new Error(`Failed to fetch models: ${errMsg}`)
-      }
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        throw err
-      }
-    }
-  }
-
-  if (!data) {
-    throw new Error('Unable to connect to gateway models endpoint. Check your Base URL and API Key.')
+    data = await directRes.json()
+  } catch (err: unknown) {
+    const reason = err instanceof Error ? err.message : 'Unknown network error'
+    throw new Error(
+      `Unable to fetch models directly from the gateway. Check the Base URL, API key, and that the gateway allows this app origin with CORS. ${reason}`,
+      { cause: err }
+    )
   }
 
   const rawList = Array.isArray(data) ? data : (data.data || [])

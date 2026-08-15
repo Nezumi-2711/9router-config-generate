@@ -10,5 +10,5 @@
     "verbatimModuleSyntax": true,
     "moduleDetection": "force"
   },
-  "include": ["index.ts", "modelProxy.ts"]
+  "include": ["index.ts"]
 }

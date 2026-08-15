@@ -1,11 +1,9 @@
 import { renderInstallScript } from '../src/services/installEndpoint.ts'
-import { proxyModelRequest } from './modelProxy.ts'
 
 interface WorkerEnv {
   ASSETS: {
     fetch(request: Request): Promise<Response>
   }
-  MODEL_PROXY_ALLOWED_ORIGINS?: string
 }
 
 export default {
@@ -24,10 +22,6 @@ export default {
           'cache-control': 'no-store',
         },
       })
-    }
-
-    if (url.pathname === '/api/fetch-models') {
-      return proxyModelRequest(request, env)
     }
 
     return env.ASSETS.fetch(request)
