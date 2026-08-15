@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import type { ToolId, ConnectionConfig } from './types'
+import { useState, useMemo, useEffect, useCallback } from 'react'
+import type { ToolId, ConnectionConfig, Model } from './types'
 import { mockModels } from './data/mockModels'
 import { tools, toolList } from './data/tools'
 import { Header } from './components/Header'
@@ -7,21 +7,56 @@ import { ConnectionForm } from './components/ConnectionForm'
 import { ModelList } from './components/ModelList'
 import { ToolSelector } from './components/ToolSelector'
 import { ConfigPreview } from './components/ConfigPreview'
+import { fetchRemoteModels } from './services/modelService'
 
 export function App() {
   const [connection, setConnection] = useState<ConnectionConfig>({
-    baseUrl: 'http://localhost:20128/v1',
-    apiKey: '',
+    baseUrl: 'https://9router.nezumi.pw/v1',
+    apiKey: 'sk-caa6204550dbdba8-h1x4oy-4f464660',
   })
 
-  // Default select 2 popular models
-  const [selectedModelIds, setSelectedModelIds] = useState<string[]>([
-    'cc/claude-sonnet-4.5',
-    'openai/gpt-4o',
-  ])
-
+  const [models, setModels] = useState<Model[]>(mockModels)
+  const [selectedModelIds, setSelectedModelIds] = useState<string[]>([])
   const [selectedToolId, setSelectedToolId] = useState<ToolId>('copilot')
   const [searchQuery, setSearchQuery] = useState('')
+  const [isLoadingModels, setIsLoadingModels] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+  const [isLive, setIsLive] = useState(false)
+
+  const handleFetchModels = useCallback(
+    async (overrideConfig?: ConnectionConfig) => {
+      const cfg = overrideConfig || connection
+      if (!cfg.baseUrl) return
+
+      setIsLoadingModels(true)
+      setFetchError(null)
+
+      try {
+        const fetched = await fetchRemoteModels(cfg)
+        if (fetched.length > 0) {
+          setModels(fetched)
+          setIsLive(true)
+          // Default select the first 2-3 models if nothing selected or preserve existing matching IDs
+          setSelectedModelIds((prev) => {
+            const validPrev = prev.filter((id) => fetched.some((m) => m.id === id))
+            if (validPrev.length > 0) return validPrev
+            return fetched.slice(0, Math.min(3, fetched.length)).map((m) => m.id)
+          })
+        }
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Unknown error'
+        setFetchError(message)
+      } finally {
+        setIsLoadingModels(false)
+      }
+    },
+    [connection]
+  )
+
+  // Auto-fetch initial models on mount if valid baseUrl exists
+  useEffect(() => {
+    handleFetchModels()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleToggleModel = (id: string) => {
     setSelectedModelIds((prev) =>
@@ -31,7 +66,7 @@ export function App() {
 
   const handleSelectAll = () => {
     const q = searchQuery.toLowerCase().trim()
-    const visibleIds = mockModels
+    const visibleIds = models
       .filter(
         (m) =>
           !q ||
@@ -48,7 +83,7 @@ export function App() {
   const handleDeselectAll = () => {
     const q = searchQuery.toLowerCase().trim()
     const visibleIds = new Set(
-      mockModels
+      models
         .filter(
           (m) =>
             !q ||
@@ -64,8 +99,8 @@ export function App() {
   }
 
   const selectedModels = useMemo(() => {
-    return mockModels.filter((m) => selectedModelIds.includes(m.id))
-  }, [selectedModelIds])
+    return models.filter((m) => selectedModelIds.includes(m.id))
+  }, [models, selectedModelIds])
 
   const activeTool = tools[selectedToolId] || tools.copilot
 
@@ -79,17 +114,27 @@ export function App() {
           <div className="flex flex-col gap-6 min-w-0">
             <ConnectionForm
               connection={connection}
-              onChange={setConnection}
+              onChange={(newConn) => {
+                setConnection(newConn)
+                setFetchError(null)
+              }}
+              onFetchModels={() => handleFetchModels()}
+              isLoading={isLoadingModels}
+              error={fetchError}
+              modelsCount={models.length}
+              isLive={isLive}
             />
 
             <ModelList
-              models={mockModels}
+              models={models}
               selectedIds={selectedModelIds}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               onToggleModel={handleToggleModel}
               onSelectAll={handleSelectAll}
               onDeselectAll={handleDeselectAll}
+              isLoading={isLoadingModels}
+              isLive={isLive}
             />
 
             <ToolSelector

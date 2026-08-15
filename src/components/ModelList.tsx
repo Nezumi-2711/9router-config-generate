@@ -3,7 +3,7 @@ import type { Model } from '../types'
 import { Card } from './ui/Card'
 import { Badge } from './ui/Badge'
 import { Input } from './ui/Input'
-import { Search, CheckSquare, Square, Eye, Wrench, Layers } from 'lucide-react'
+import { Search, CheckSquare, Square, Eye, Wrench, Layers, RefreshCw } from 'lucide-react'
 
 interface ModelListProps {
   models: Model[]
@@ -13,6 +13,8 @@ interface ModelListProps {
   onToggleModel: (id: string) => void
   onSelectAll: () => void
   onDeselectAll: () => void
+  isLoading?: boolean
+  isLive?: boolean
 }
 
 export const ModelList: React.FC<ModelListProps> = ({
@@ -23,6 +25,8 @@ export const ModelList: React.FC<ModelListProps> = ({
   onToggleModel,
   onSelectAll,
   onDeselectAll,
+  isLoading = false,
+  isLive = false,
 }) => {
   const filteredModels = useMemo(() => {
     const q = searchQuery.toLowerCase().trim()
@@ -48,8 +52,13 @@ export const ModelList: React.FC<ModelListProps> = ({
             2. Select Models
           </h2>
           <Badge variant="brand" size="sm">
-            {selectedIds.length} selected
+            {selectedIds.length} / {models.length} selected
           </Badge>
+          {isLive && (
+            <Badge variant="success" size="sm">
+              Live
+            </Badge>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -71,8 +80,13 @@ export const ModelList: React.FC<ModelListProps> = ({
         className="text-xs"
       />
 
-      <div className="max-h-72 overflow-y-auto pr-1 flex flex-col gap-2">
-        {filteredModels.length === 0 ? (
+      <div className="max-h-72 overflow-y-auto pr-1 flex flex-col gap-2 relative">
+        {isLoading ? (
+          <div className="p-8 text-center text-xs text-zinc-500 dark:text-zinc-400 flex flex-col items-center justify-center gap-2 border border-zinc-200 dark:border-zinc-800 rounded-lg">
+            <RefreshCw className="w-5 h-5 animate-spin text-amber-500" />
+            <span>Fetching models from endpoint...</span>
+          </div>
+        ) : filteredModels.length === 0 ? (
           <div className="p-6 text-center text-xs text-zinc-500 dark:text-zinc-400 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-lg">
             No models matching "{searchQuery}"
           </div>

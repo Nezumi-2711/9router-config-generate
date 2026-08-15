@@ -4,16 +4,26 @@ import { Input } from './ui/Input'
 import { Button } from './ui/Button'
 import { Card } from './ui/Card'
 import { Badge } from './ui/Badge'
-import { Link2, Key, RefreshCw, Eye, EyeOff } from 'lucide-react'
+import { Link2, Key, RefreshCw, Eye, EyeOff, AlertCircle } from 'lucide-react'
 
 interface ConnectionFormProps {
   connection: ConnectionConfig
   onChange: (connection: ConnectionConfig) => void
+  onFetchModels: () => void
+  isLoading?: boolean
+  error?: string | null
+  modelsCount?: number
+  isLive?: boolean
 }
 
 export const ConnectionForm: React.FC<ConnectionFormProps> = ({
   connection,
   onChange,
+  onFetchModels,
+  isLoading = false,
+  error = null,
+  modelsCount = 0,
+  isLive = false,
 }) => {
   const [showKey, setShowKey] = useState(false)
 
@@ -24,8 +34,8 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 m-0">
             1. Gateway Connection
           </h2>
-          <Badge variant="brand" size="sm">
-            Local Router
+          <Badge variant={isLive ? 'success' : 'brand'} size="sm">
+            {isLive ? 'Live Connected' : 'Local Router'}
           </Badge>
         </div>
         <span className="text-xs text-zinc-500 dark:text-zinc-400">OpenAI compatible</span>
@@ -62,19 +72,39 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
         />
       </div>
 
+      {error && (
+        <div className="flex items-center gap-2 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span className="truncate">{error}</span>
+        </div>
+      )}
+
       <div className="flex items-center justify-between pt-1">
         <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span>Local mock catalog loaded</span>
+          <div
+            className={`w-2 h-2 rounded-full ${
+              isLive ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+            }`}
+          />
+          <span>
+            {isLive
+              ? `Live connected (${modelsCount} models loaded)`
+              : 'Local mock catalog loaded'}
+          </span>
         </div>
         <Button
-          variant="outline"
+          variant="primary"
           size="sm"
-          disabled
-          icon={<RefreshCw className="w-3.5 h-3.5" />}
-          title="Live endpoint fetching will be available in next release"
+          onClick={onFetchModels}
+          disabled={isLoading || !connection.baseUrl}
+          icon={
+            <RefreshCw
+              className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`}
+            />
+          }
+          title="Fetch models from the specified Base URL and API Key"
         >
-          Fetch Models (Live)
+          {isLoading ? 'Fetching...' : 'Fetch Models'}
         </Button>
       </div>
     </Card>
